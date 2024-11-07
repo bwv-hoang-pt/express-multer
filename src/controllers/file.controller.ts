@@ -1,15 +1,16 @@
-import { createHash } from "crypto";
-import { Request, Response } from "express";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { PublishCommand } from "@aws-sdk/client-sns";
-import { s3Client, snsClient } from "../config/aws.config";
+import { createHash } from "crypto";
 import dotenv from "dotenv";
+import { Request, Response } from "express";
+import { s3Client, snsClient } from "../config/aws.config";
+import { overlayImage } from "../utils/fileHash";
 
 dotenv.config();
 
 const { S3_BUCKET_NAME, SNS_TOPIC_ARN } = process.env;
 export class FileController {
-  public async uploadSingle(req: Request, res: Response) {
+  public async upload(req: Request, res: Response) {
     try {
       if (req.file) {
         const fileHash = createHash("sha1")
@@ -18,11 +19,14 @@ export class FileController {
 
         const key = `uploads/${Date.now()}-${req.file.originalname}`;
 
+        // Overlay image
+        const imageAfterOverlay = await overlayImage(req.file.buffer);
+
         // Upload to S3
         const uploadCommand = new PutObjectCommand({
           Bucket: S3_BUCKET_NAME,
           Key: key,
-          Body: req.file.buffer,
+          Body: imageAfterOverlay,
           ContentType: req.file.mimetype,
         });
 
